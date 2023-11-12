@@ -1,7 +1,9 @@
 #!/usr/bin/python3
 import requests
 import sys
-
+"""
+function test to render
+"""
 
 def add_title(hot_list, hot_posts):
     """ Adds item into a list """
