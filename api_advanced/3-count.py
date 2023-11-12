@@ -3,70 +3,72 @@
 Function that queries the Reddit API and prints
 the top ten hot posts of a subreddit
 """
-import re
+
+from audioop import reverse
 import requests
-import sys
+
+headers = {'User-Agent': 'MyAPI/0.0.1'}
 
 
-def add_title(dictionary, hot_posts):
-    """ Adds item into a list """
-    if len(hot_posts) == 0:
-        return
+def count_words(subreddit, word_list, after="", hot_list=[]):
+    """print the sorted count of word_list."""
 
-    title = hot_posts[0]['data']['title'].split()
-    for word in title:
-        for key in dictionary.keys():
-            c = re.compile("^{}$".format(key), re.I)
-            if c.findall(word):
-                dictionary[key] += 1
-    hot_posts.pop(0)
-    add_title(dictionary, hot_posts)
+    subreddit_url = "https://reddit.com/r/{}/hot.json".format(subreddit)
 
+    parameters = {'limit': 100, 'after': after}
+    response = requests.get(subreddit_url, headers=headers, params=parameters)
 
-def recurse(subreddit, dictionary, after=None):
-    """ Queries to Reddit API """
-    u_agent = 'Mozilla/5.0'
-    headers = {
-        'User-Agent': u_agent
-    }
+    if response.status_code == 200:
 
-    params = {
-        'after': after
-    }
+        # print(response.status_code)
+        json_data = response.json()
+        if (json_data.get('data').get('dist') == 0):
+            return
+        # get the 'after' value from the response to pass it on the request
 
-    url = "https://www.reddit.com/r/{}/hot.json".format(subreddit)
-    res = requests.get(url,
-                       headers=headers,
-                       params=params,
-                       allow_redirects=False)
+        # get title and append it to the hot_list
+        for child in json_data.get('data').get('children'):
+            title = child.get('data').get('title')
+            hot_list.append(title)
 
-    if res.status_code != 200:
-        return None
+        # variable after indicates if there is data on the next pagination
+        # on the reddit API after holds a unique name for that subreddit page.
+        # if it is None it indicates it is the last page.
+        after = json_data.get('data').get('after')
+        if after is not None:
+            # print("got next page")
+            # print(len(hot_list))
+            return count_words(subreddit, word_list,
+                               after=after, hot_list=hot_list)
+        else:
+            # put the initial words counter dictionary
+            counter = {}
+            for word in word_list:
+                word = word.lower()
+                if word not in counter.keys():
+                    counter[word] = 0
+                else:
+                    counter[word] += 1
+            # loop through the hot_list to check if word is found in the list
+            for title in hot_list:
+                title_list = title.lower().split(' ')
+                for word in counter.keys():
+                    search_word = "{}".format(word)
+                    if search_word in title_list:
+                        counter[word] += 1
+            sorted_counter = dict(
+                sorted(counter.items(),
+                       key=lambda item: item[1], reverse=True))
+            for key, value in sorted_counter.items():
+                if value > 0:
+                    print("{}: {}".format(key, value))
+            # print(hot_list)
 
-    dic = res.json()
-    hot_posts = dic['data']['children']
-    add_title(dictionary, hot_posts)
-    after = dic['data']['after']
-    if not after:
-        return
-    recurse(subreddit, dictionary, after=after)
-
-
-def count_words(subreddit, word_list):
-    """ Init function """
-    dictionary = {}
-
-    for word in word_list:
-        dictionary[word] = 0
-
-    recurse(subreddit, dictionary)
-
-    l = sorted(dictionary.items(), key=lambda kv: kv[1])
-    l.reverse()
-
-    if len(l) != 0:
-        for item in l:
-            if item[1] is not 0:
-                print("{}: {}".format(item[0], item[1]))
     else:
-        print("")
+        return
+
+
+if _name_ == '_main_':
+    count_words("hello", ['REDDIT', 'german', 'HI', 'whynot'])
+    count_words('unpopular', ['down', 'vote', 'downvote',
+                              'you', 'her', 'unpopular', 'politics'])
