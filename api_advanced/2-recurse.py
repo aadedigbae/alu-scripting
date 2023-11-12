@@ -1,23 +1,30 @@
 #!/usr/bin/python3
-"""fetches the title of all hot posts for a given subreddit recursively"""
-
+'''Defines recursive function to return hot posts in subreddit
+'''
 import requests
 
 
-def recurse(subreddit, hot_list=[], after=""):
-    """Main function"""
-    URL = "https://www.reddit.com/r/{}/hot.json".format(subreddit)
+def recurse(subreddit, hot_list=[], fullname=None, count=0):
+    '''fetches all hot posts in a subreddit
 
-    HEADERS = {"User-Agent": "PostmanRuntime/7.35.0"}
-    PARAMS = {"after": after, "limit": 100}
-    try:
-        RESPONSE = requests.get(URL, headers=HEADERS, params=PARAMS,
-                                allow_redirects=False)
-        after = RESPONSE.json().get("data").get("after")
-        HOT_POSTS = RESPONSE.json().get("data").get("children")
-        [hot_list.append(post.get('data').get('title')) for post in HOT_POSTS]
-        if after is not None:
-            return recurse(subreddit, hot_list, after)
-        return hot_list
-    except Exception:
+    Return:
+        None - if subreddit is invalid
+    '''
+    url = 'https://www.reddit.com/r/{}/hot/.json'.format(subreddit)
+    params = {'after': fullname, 'limit': 100, 'count': count}
+    headers = {'user-agent': 'Mozilla/5.0 \
+(Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0'}
+    info = requests.get(url, headers=headers,
+                        params=params, allow_redirects=False)
+    if (info.status_code % 400) < 100:
         return None
+    info_json = info.json()
+    results = info_json.get('data').get('children')
+    new_packet = [post.get('data').get('title') for post in results]
+    hot_list += new_packet
+    after = info_json.get('data').get('after', None)
+    dist = info_json.get('data').get('dist')
+    count += dist
+    if after:
+        recurse(subreddit, hot_list, after, count)
+    return hot_list
