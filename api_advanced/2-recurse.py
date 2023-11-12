@@ -1,30 +1,32 @@
 #!/usr/bin/python3
-'''Defines recursive function to return hot posts in subreddit
-'''
+""""Doc"""
 import requests
 
 
-def recurse(subreddit, hot_list=[], fullname=None, count=0):
-    '''fetches all hot posts in a subreddit
+def recurse(subreddit, hot_list=[], after=""):
+    """"Doc
+    Reddit sends an after property in the response.
+    Keep retrieving comments until after is null.
+    """
+    url = "https://www.reddit.com/r/{}/hot.json" \
+        .format(subreddit)
+    header = {'User-Agent': 'Mozilla/5.0'}
+    param = {'after': after}
+    res = requests.get(url, headers=header, params=param)
 
-    Return:
-        None - if subreddit is invalid
-    '''
-    url = 'https://www.reddit.com/r/{}/hot/.json'.format(subreddit)
-    params = {'after': fullname, 'limit': 100, 'count': count}
-    headers = {'user-agent': 'Mozilla/5.0 \
-(Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0'}
-    info = requests.get(url, headers=headers,
-                        params=params, allow_redirects=False)
-    if (info.status_code % 400) < 100:
+    if res.status_code != 200:
         return None
-    info_json = info.json()
-    results = info_json.get('data').get('children')
-    new_packet = [post.get('data').get('title') for post in results]
-    hot_list += new_packet
-    after = info_json.get('data').get('after', None)
-    dist = info_json.get('data').get('dist')
-    count += dist
-    if after:
-        recurse(subreddit, hot_list, after, count)
-    return hot_list
+    else:
+        json_res = res.json()
+        # print(json_res.get('data').get('after'))
+        after = json_res.get('data').get('after')
+        has_next = \
+            json_res.get('data').get('after') is not None
+        # print(has_next)
+        hot_articles = json_res.get('data').get('children')
+        [hot_list.append(article.get('data').get('title'))
+         for article in hot_articles]
+        # print(len(hot_list))
+        # print(hot_list)
+        return recurse(subreddit, hot_list, after=after) \
+            if has_next else hot_list
